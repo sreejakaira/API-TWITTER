@@ -153,13 +153,15 @@ app.get("/user/tweets/feed/", authenticateToken, async (request, response) => {
 
 app.get("/user/following/", authenticateToken, async (request, response) => {
   const { username, userId } = request;
+  const followingPeopleIds = await getFollowingPeopleIdsOfUser(username);
+
   const userFollowersQuery = `
     SELECT 
-        name
+       DISTINCT name
     FROM 
-         follower INNER JOIN user on user.user_id = follower.follower_user_id
+         follower INNER JOIN user ON  user.user_id = follower.following_user_id
     WHERE
-      follower.following_user_id = '${userId}'
+        user.user_id IN (${followingPeopleIds})
     ;`;
   const followingPeople = await db.all(userFollowersQuery);
   response.send(followingPeople);
@@ -168,10 +170,12 @@ app.get("/user/following/", authenticateToken, async (request, response) => {
 //API 5
 
 app.get("/user/followers/", authenticateToken, async (request, response) => {
-  const { username, userId } = request;
+  const { username } = request;
+  const followingPeopleIds = await getFollowingPeopleIdsOfUser(username);
+
   const getFollowersQuery = `SELECT DISTINCT name FROM follower 
    INNER JOIN user ON user.user_id = follower.follower_user_id 
-    WHERE following_user_id = '${userId}';
+    WHERE user.user_id IN (${followingPeopleIds})
     `;
 
   const followers = await db.all(getFollowersQuery);
@@ -272,6 +276,7 @@ app.post("/user/tweets/", authenticateToken, async (request, response) => {
 app.delete(
   "/tweets/:tweetId/",
   authenticateToken,
+  tweetAccessVerification,
   async (request, response) => {
     const { tweetId } = request.params;
     const { userId } = request;
