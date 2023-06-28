@@ -159,7 +159,7 @@ app.get("/user/following/", authenticateToken, async (request, response) => {
     SELECT 
        DISTINCT name
     FROM 
-         follower INNER JOIN user ON  user.user_id = follower.following_user_id
+         follower INNER JOIN user ON  user.user_id = follower.follower_user_id
     WHERE
         user.user_id IN (${followingPeopleIds})
     ;`;
@@ -174,9 +174,9 @@ app.get("/user/followers/", authenticateToken, async (request, response) => {
   const followingPeopleIds = await getFollowingPeopleIdsOfUser(username);
 
   const getFollowersQuery = `SELECT DISTINCT name FROM follower 
-   INNER JOIN user ON user.user_id = follower.follower_user_id 
+   INNER JOIN user ON user.user_id = follower.following_user_id
     WHERE user.user_id IN (${followingPeopleIds})
-    `;
+    ;`;
 
   const followers = await db.all(getFollowersQuery);
   response.send(followers);
@@ -279,9 +279,11 @@ app.delete(
   tweetAccessVerification,
   async (request, response) => {
     const { tweetId } = request.params;
-    const { userId } = request;
+    const { username } = request;
+    const followingPeopleIds = await getFollowingPeopleIdsOfUser(username);
+
     const selectUserQuery = `
-    SELECT * FROM tweet WHERE user_id = '${userId}' AND tweet_id = '${tweetId}';`;
+    SELECT * FROM tweet WHERE user.user_id IN (${followingPeopleIds}) AND tweet_id = '${tweetId}';`;
     const tweetUser = await db.get(selectUserQuery);
     if (tweetUser === undefined) {
       response.status(401);
